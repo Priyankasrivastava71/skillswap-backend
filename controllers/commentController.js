@@ -34,7 +34,10 @@ const getCommentsByPost = async (req, res) => {
 
   const { data, error } = await supabase
     .from("comments")
-    .select("*")
+    .select(`
+      *,
+      user:user_id ( id, name )
+    `)
     .eq("post_id", postId)
     .order("created_at", { ascending: true });
 

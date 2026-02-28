@@ -113,18 +113,26 @@ const giveFeedback = async (req, res) => {
 };
 
 const getFeedbackForUser = async (req, res) => {
-  try {
-    const userId = req.params.id;
+  const userId = req.params.id;
 
-    const feedbacks = await Feedback.find({ toUser: userId })
-      .populate("fromUser", "name")
-      .sort({ createdAt: -1 });
+  const { data, error } = await supabase
+    .from("feedback")
+    .select(`
+      *,
+      fromUser:given_by ( id, name )
+    `)
+    .eq("given_to", userId)
+    .order("created_at", { ascending: false });
 
-    res.json({ success: true, data: feedbacks });
-
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+  if (error) {
+    return errorResponse(res, 400, error.message);
   }
-};
 
+  return successResponse(
+    res,
+    200,
+    "Feedback fetched successfully",
+    data
+  );
+};
 module.exports = { giveFeedback, getFeedbackForUser };
