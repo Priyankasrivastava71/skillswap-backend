@@ -1,248 +1,260 @@
-# 🚀 SkillSwap Backend API
+# SkillSwap – Backend
 
-Backend API for SkillSwap – A Skill Exchange Platform.
+## 📖 Project Overview
 
-Built using:
-- Node.js
-- Express.js
-- Supabase (PostgreSQL)
-- JWT Authentication
-- REST API Architecture
+SkillSwap Backend is the server-side of the SkillSwap platform.  
+It handles user authentication, skill matching, session requests, feedback system, posts, comments, resources, and notifications.
 
----
+The backend is built using Node.js and Express, and it uses Supabase (PostgreSQL) as the database.
 
-## 📌 Overview
-
-SkillSwap allows users to:
-
-- Register and login securely
-- Create and update profiles
-- Match skills with other users
-- Send and manage exchange requests
-- Schedule sessions
-- Give feedback and ratings
-- Share resources
-- Post in a community forum
-- Receive notifications
-
-This backend manages authentication, authorization, business logic, and database operations.
+It provides RESTful APIs that connect with the frontend application.
 
 ---
 
-# 🏗 Tech Stack
+## 🛠 Tech Stack
 
 - Node.js
 - Express.js
 - Supabase (PostgreSQL)
-- JWT
-- bcrypt
-- REST API
+- JWT (Authentication)
+- Bcrypt (Password Hashing)
+- CORS
+- Dotenv
+
+Deployment:
+- Backend deployed on Render
 
 ---
 
-# 📂 Project Structure
+## 🌍 Backend Deployment Link
+
+Live API Base URL:
+
+https://skillswap-backend-5k4u.onrender.com
+
+API Base Path:
+
+https://skillswap-backend-5k4u.onrender.com/api
+
+---
+
+## 🔐 Authentication
+
+The backend uses JWT-based authentication.
+
+After successful login, a JWT token is generated and must be sent in headers:
+
+Authorization: Bearer <token>
+
+Protected routes require a valid token.
+
+---
+
+## 📌 API Documentation
+
+### 🔑 Auth Routes
+
+| Method | Endpoint | Description |
+|--------|----------|------------|
+| POST | /api/auth/register | Register new user |
+| POST | /api/auth/login | Login user |
+
+---
+
+### 👤 User Routes
+
+| Method | Endpoint | Description |
+|--------|----------|------------|
+| GET | /api/users | Get all users |
+| GET | /api/users/matches | Get matched users |
+| GET | /api/users/search?skill= | Search users by skill |
+| GET | /api/users/top-rated | Get top rated users |
+| GET | /api/users/profile | Get logged-in user profile |
+| PUT | /api/users/profile | Update profile |
+
+---
+
+### 🔄 Request Routes
+
+| Method | Endpoint | Description |
+|--------|----------|------------|
+| POST | /api/requests | Send skill request |
+| GET | /api/requests | Get my requests |
+| PUT | /api/requests/:id | Accept / Reject request |
+| PUT | /api/requests/:id/schedule | Schedule session |
+| PUT | /api/requests/:id/complete | Mark session completed |
+
+---
+
+### ⭐ Feedback Routes
+
+| Method | Endpoint | Description |
+|--------|----------|------------|
+| POST | /api/feedback | Submit feedback and rating |
+
+---
+
+### 📝 Post Routes
+
+| Method | Endpoint | Description |
+|--------|----------|------------|
+| POST | /api/posts | Create post |
+| GET | /api/posts | Get all posts |
+| DELETE | /api/posts/:id | Delete own post |
+
+---
+
+### 💬 Comment Routes
+
+| Method | Endpoint | Description |
+|--------|----------|------------|
+| POST | /api/comments | Add comment |
+| GET | /api/comments/:postId | Get comments by post |
+| DELETE | /api/comments/:id | Delete own comment |
+
+---
+
+### 📚 Resource Routes
+
+| Method | Endpoint | Description |
+|--------|----------|------------|
+| POST | /api/resources | Add resource |
+| GET | /api/resources | Get all resources |
+
+---
+
+### 🔔 Notification Routes
+
+| Method | Endpoint | Description |
+|--------|----------|------------|
+| GET | /api/notifications | Get my notifications |
+| PUT | /api/notifications/:id | Mark notification as read |
+
+---
+
+## 🗄 Database Schema Explanation
+
+The project uses Supabase (PostgreSQL) database with the following tables:
+
+### Users Table
+- id (UUID, Primary Key)
+- name
+- email
+- password
+- bio
+- skills_offered (array)
+- skills_wanted (array)
+- rating
+- created_at
+- updated_at
+
+### Requests Table
+- id
+- sender_id
+- receiver_id
+- skill_requested
+- status
+- scheduled_date
+- session_date
+- session_time
+- duration
+- session_mode
+- session_status
+- created_at
+- updated_at
+
+### Feedback Table
+- id
+- request_id
+- given_by
+- given_to
+- rating
+- comment
+- created_at
+- updated_at
+
+### Posts Table
+- id
+- user_id
+- title
+- content
+- created_at
+
+### Comments Table
+- id
+- post_id
+- user_id
+- content
+- created_at
+
+### Resources Table
+- id
+- user_id
+- title
+- link
+- description
+- created_at
+
+### Notifications Table
+- id
+- user_id
+- type
+- message
+- related_id
+- is_read
+- created_at
+- updated_at
+
+---
+
+## ⚙️ Installation Steps
+
+1. Clone the repository:
+   git clone <your-backend-repo-link>
+
+2. Install dependencies:
+   npm install
+
+3. Create a .env file and add:
+
+   PORT=5000  
+   JWT_SECRET=your_secret_key  
+   SUPABASE_URL=your_supabase_url  
+   SUPABASE_SERVICE_KEY=your_service_role_key  
+
+4. Run the server:
+   npm run dev
+
+Server will start on:
+http://localhost:5000
+
+---
+
+## 📂 Project Structure
 
 backend/
-
-• controllers → All business logic files  
-• routes → API route definitions  
-• middleware → Authentication & error handling  
-• utils → Helper functions  
-• config → Supabase connection  
-• server.js → Main entry file  
-• .env → Environment variables  
-• README.md → Project documentation
-
----
-
-# 🔐 Authentication
-
-### Features
-
-- Register User
-- Login User
-- JWT Token Generation
-- Protected Routes via auth middleware
-
-### Security
-
-- Password hashing using bcrypt
-- Token verification using JWT_SECRET
-- Authorization header validation
-
----
-
-# 👤 User Controller
-
-Functions:
-
-- getProfile
-- updateProfile
-- getAllUsers
-- getUserById
-- getMatches (skill overlap logic)
-- searchUsersBySkill
-- getTopRatedUsers
-
-Supports:
-- Skill matching
-- Search by skill
-- Sorting by rating
-- Profile management
-
----
-
-# 🤝 Request Controller (Skill Exchange)
-
-Features:
-
-- Send Request
-- Accept / Reject Request
-- Schedule Session
-- Update Session Details
-- Mark Session as Completed
-- Authorization checks (sender/receiver validation)
-- Automatic notification creation
-
-Ensures:
-- Only receiver can accept/reject
-- Both users can schedule session
-- Only session participants can mark completed
-
----
-
-# ⭐ Feedback System
-
-- Submit rating (1–5)
-- Add comment
-- Only allowed after session completion
-- Prevent duplicate feedback
-- Auto recalculate average rating
-- Update user rating
-- Create notification for rated user
-
----
-
-# 💬 Community Forum
-
-## Posts
-
-- Create Post
-- Get All Posts (with user & comments)
-- Delete Own Post
-
-## Comments
-
-- Add Comment
-- Get Comments by Post
-- Delete Own Comment
-
----
-
-# 📚 Resource Sharing
-
-- Add Resource
-- Get All Resources
-
----
-
-# 🔔 Notification System
-
-- Get My Notifications
-- Mark Notification as Read
-- Ownership validation
-- Auto notifications triggered for:
-  - New request
-  - Request accepted
-  - Session scheduled
-  - Feedback received
-
----
-
-# 🛡 Middleware
-
-## authMiddleware
-
-- Verifies JWT token
-- Protects private routes
-- Attaches authenticated user to request
-
-## errorMiddleware
-
-- Global error handling
-- Standardized error responses
-
----
-
-# 🛠 Utilities
-
-## generateToken.js
-
-- Generates JWT token
-- Encodes user ID
-
-## responseHandler.js
-
-- successResponse()
-- errorResponse()
-- Consistent API response format
-
----
-
-# 🗄 Database (Supabase – PostgreSQL)
-
-This project uses Supabase with PostgreSQL and a defined database schema.
-
-## Tables
-
-- users
-- requests
-- feedback
-- posts
-- comments
-- resources
-- notifications
-
-### Schema Features
-
-- UUID primary keys
-- Foreign key constraints
-- Cascading deletes
-- Array-based skill storage
-- Skill overlap matching
-- Rating aggregation logic
-- Session scheduling fields
-- Notification tracking
-
----
-
-# 🔑 Environment Variables
-
-Create a `.env` file in the backend root:
-
-PORT=5000  
-JWT_SECRET=your_secret_key  
-SUPABASE_URL=your_supabase_url  
-SUPABASE_KEY=your_supabase_key
-
----
-
-# ▶️ Running the Backend
-
-Install dependencies:
-
-npm install
-
-Start development server:
-
-npm run dev
-
----
-
-# 📡 API Base URL
-
-/api
-
-Example Endpoints:
-
-POST   /api/auth/register POST   /api/auth/login GET    /api/users POST   /api/requests GET    /api/posts GET    /api/resources GET    /api/notifications
+│── config/
+│   └── supabaseClient.js
+│
+│── controllers/
+│   ├── authController.js
+│   ├── userController.js
+│   ├── requestController.js
+│   ├── feedbackController.js
+│   ├── postController.js
+│   ├── commentController.js
+│   ├── resourceController.js
+│   └── notificationController.js
+│
+│── middleware/
+│   ├── authMiddleware.js
+│   └── errorMiddleware.js
+│
+│── routes/
+│
+│── utils/
+│   ├── generateToken.js
+│   └── responseHandler.js
+│
+│── server.js
+│── package.json
