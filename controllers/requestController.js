@@ -7,20 +7,59 @@ const sendRequest = async (req, res) => {
   const { receiver_id, skill_requested, scheduled_date } = req.body;
 
   if (!receiver_id || !skill_requested || !scheduled_date) {
-    return errorResponse(res,400,"All fields are required");
+    return errorResponse(res, 400, "All fields are required");
   }
 
   if (senderId === receiver_id) {
     return errorResponse(res, 400, "You cannot send request to yourself");
   }
 
+  // Get sender profile
+  const { data: sender } = await supabase
+    .from("users")
+    .select("skills_offered")
+    .eq("id", senderId)
+    .single();
+
+  // Get receiver profile
+  const { data: receiver } = await supabase
+    .from("users")
+    .select("skills_offered")
+    .eq("id", receiver_id)
+    .single();
+
+  if (!sender?.skills_offered || sender.skills_offered.length === 0) {
+    return errorResponse(
+      res,
+      400,
+      "Add at least one skill to your profile before sending requests"
+    );
+  }
+
+  // Normalize skill comparison
+  const requestedSkill = skill_requested.trim().toLowerCase();
+
+  const receiverSkills =
+    receiver?.skills_offered?.map((skill) =>
+      skill.trim().toLowerCase()
+    ) || [];
+
+  if (!receiverSkills.includes(requestedSkill)) {
+    return errorResponse(
+      res,
+      400,
+      "This user does not offer the requested skill"
+    );
+  }
+
+  // Prevent duplicate requests
   const { data: existing } = await supabase
     .from("requests")
     .select("*")
     .eq("sender_id", senderId)
     .eq("receiver_id", receiver_id)
     .eq("skill_requested", skill_requested)
-    .eq("status", "pending");
+    .in("status", ["pending", "accepted"]);
 
   if (existing && existing.length > 0) {
     return errorResponse(res, 400, "Request already sent");
@@ -33,8 +72,8 @@ const sendRequest = async (req, res) => {
         sender_id: senderId,
         receiver_id,
         skill_requested,
-        scheduled_date
-      }
+        scheduled_date,
+      },
     ])
     .select();
 
@@ -42,21 +81,16 @@ const sendRequest = async (req, res) => {
     return errorResponse(res, 400, error.message);
   }
 
-  //Request Notification 
-await supabase
-  .from("notifications")
-  .insert([
+  await supabase.from("notifications").insert([
     {
       user_id: receiver_id,
       type: "request",
       message: "You received a new skill exchange request",
-      related_id: data[0].id
-    }
+      related_id: data[0].id,
+    },
   ]);
 
-  return successResponse(res, 201, "Request sent successfully",
-    data[0]
-  );
+  return successResponse(res, 201, "Request sent successfully", data[0]);
 };
 
 // Get My Requests
@@ -68,7 +102,8 @@ const getMyRequests = async (req, res) => {
     .select(`
       *,
       sender:sender_id ( id, name ),
-      receiver:receiver_id ( id, name )
+      receiver:receiver_id ( id, name ),
+      feedback:feedback ( id, given_by )
     `)
     .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`);
 
@@ -76,25 +111,17 @@ const getMyRequests = async (req, res) => {
     return errorResponse(res, 400, error.message);
   }
 
-  // Add flags for frontend
   const formatted = data.map((req) => ({
     ...req,
     isSender: req.sender_id === userId,
     isReceiver: req.receiver_id === userId,
-    otherUser:
-      req.sender_id === userId
-        ? req.receiver
-        : req.sender,
+    otherUser: req.sender_id === userId ? req.receiver : req.sender,
   }));
 
-  return successResponse(
-    res,
-    200,
-    "Requests fetched successfully",
-    formatted
-  );
+  return successResponse(res, 200, "Requests fetched successfully", formatted);
 };
-// Accept / Reject
+
+// Accept / Reject Request
 const updateRequestStatus = async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
@@ -104,7 +131,7 @@ const updateRequestStatus = async (req, res) => {
     .from("requests")
     .update({
       status,
-      updated_at: new Date()
+      updated_at: new Date(),
     })
     .eq("id", id)
     .eq("receiver_id", userId)
@@ -115,30 +142,32 @@ const updateRequestStatus = async (req, res) => {
     return errorResponse(res, 404, "Request not found or unauthorized");
   }
 
-  // Notify sender if accepted
   if (status === "accepted") {
-    await supabase
-      .from("notifications")
-      .insert([
-        {
-          user_id: data.sender_id,
-          type: "accepted",
-          message: "Your skill request was accepted!",
-          related_id: id
-        }
-      ]);
+    await supabase.from("notifications").insert([
+      {
+        user_id: data.sender_id,
+        type: "accepted",
+        message: "Your skill request was accepted!",
+        related_id: id,
+      },
+    ]);
   }
 
   return successResponse(res, 200, "Request updated successfully", data);
 };
 
-//For scheduling session
+// Schedule Session
 const scheduleSession = async (req, res) => {
   const { id } = req.params;
-  const { session_date, session_time, duration, session_mode } = req.body;
+  const {
+    session_date,
+    session_time,
+    duration,
+    session_mode,
+    meeting_link,
+  } = req.body;
 
   try {
-    // Fetch existing request
     const { data: existing, error: fetchError } = await supabase
       .from("requests")
       .select("*")
@@ -149,12 +178,10 @@ const scheduleSession = async (req, res) => {
       return errorResponse(res, 404, "Request not found");
     }
 
-    // Check if request is accepted
     if (existing.status !== "accepted") {
       return errorResponse(res, 400, "Request must be accepted first");
     }
 
-    //  Authorization check (BOTH users allowed)
     if (
       existing.sender_id !== req.user.id &&
       existing.receiver_id !== req.user.id
@@ -166,7 +193,6 @@ const scheduleSession = async (req, res) => {
       );
     }
 
-    //  Update session details
     const { data, error } = await supabase
       .from("requests")
       .update({
@@ -174,6 +200,7 @@ const scheduleSession = async (req, res) => {
         session_time,
         duration,
         session_mode,
+        meeting_link,
         session_status: "scheduled",
         updated_at: new Date(),
       })
@@ -185,7 +212,6 @@ const scheduleSession = async (req, res) => {
       return errorResponse(res, 400, error.message);
     }
 
-    //  Create notification for the other user
     const otherUser =
       existing.sender_id === req.user.id
         ? existing.receiver_id
@@ -200,24 +226,18 @@ const scheduleSession = async (req, res) => {
       },
     ]);
 
-    return successResponse(
-      res,
-      200,
-      "Session scheduled successfully",
-      data
-    );
+    return successResponse(res, 200, "Session scheduled successfully", data);
   } catch (err) {
     return errorResponse(res, 500, "Server error");
   }
 };
 
-// Mark Session as Completed
+// Mark Session Completed
 const markSessionCompleted = async (req, res) => {
   const { id } = req.params;
   const userId = req.user.id;
 
   try {
-    // Check request exists
     const { data: existing, error } = await supabase
       .from("requests")
       .select("*")
@@ -228,25 +248,19 @@ const markSessionCompleted = async (req, res) => {
       return errorResponse(res, 404, "Request not found");
     }
 
-    // Only sender or receiver can mark completed
-    if (
-      existing.sender_id !== userId &&
-      existing.receiver_id !== userId
-    ) {
+    if (existing.sender_id !== userId && existing.receiver_id !== userId) {
       return errorResponse(res, 403, "Unauthorized");
     }
 
-    // Must be scheduled first
     if (existing.session_status !== "scheduled") {
       return errorResponse(res, 400, "Session not scheduled yet");
     }
 
-    // Update status
     const { data, updateError } = await supabase
       .from("requests")
       .update({
         session_status: "completed",
-        updated_at: new Date()
+        updated_at: new Date(),
       })
       .eq("id", id)
       .select()
@@ -256,13 +270,7 @@ const markSessionCompleted = async (req, res) => {
       return errorResponse(res, 400, updateError.message);
     }
 
-    return successResponse(
-      res,
-      200,
-      "Session marked as completed",
-      data
-    );
-
+    return successResponse(res, 200, "Session marked as completed", data);
   } catch (err) {
     return errorResponse(res, 500, "Server error");
   }
@@ -273,5 +281,5 @@ module.exports = {
   getMyRequests,
   updateRequestStatus,
   scheduleSession,
-  markSessionCompleted
+  markSessionCompleted,
 };
