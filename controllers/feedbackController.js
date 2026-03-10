@@ -99,7 +99,7 @@ const giveFeedback = async (req, res) => {
       {
         user_id: givenTo,
         type: "feedback",
-        message: "You received new feedback",
+        message: `${req.user.name} left you feedback`,
         related_id: feedbackData[0].id
       }
     ]);

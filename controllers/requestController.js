@@ -147,7 +147,7 @@ const updateRequestStatus = async (req, res) => {
       {
         user_id: data.sender_id,
         type: "accepted",
-        message: "Your skill request was accepted!",
+        message: `${req.user.name} accepted your skill request for ${data.skill_requested}`,
         related_id: id,
       },
     ]);
@@ -221,7 +221,7 @@ const scheduleSession = async (req, res) => {
       {
         user_id: otherUser,
         type: "session",
-        message: "A session has been scheduled",
+        message: `${req.user.name} scheduled a session for ${data.skill_requested}`,
         related_id: id,
       },
     ]);
