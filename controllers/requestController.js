@@ -36,22 +36,6 @@ const sendRequest = async (req, res) => {
     );
   }
 
-  // Normalize skill comparison
-  const requestedSkill = skill_requested.trim().toLowerCase();
-
-  const receiverSkills =
-    receiver?.skills_offered?.map((skill) =>
-      skill.trim().toLowerCase()
-    ) || [];
-
-  if (!receiverSkills.includes(requestedSkill)) {
-    return errorResponse(
-      res,
-      400,
-      "This user does not offer the requested skill"
-    );
-  }
-
   // Prevent duplicate requests
   const { data: existing } = await supabase
     .from("requests")
