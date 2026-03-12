@@ -14,30 +14,8 @@ const sendRequest = async (req, res) => {
     return errorResponse(res, 400, "You cannot send request to yourself");
   }
 
-  // Get sender profile
-  const { data: sender } = await supabase
-    .from("users")
-    .select("skills_offered")
-    .eq("id", senderId)
-    .single();
-
-  // Get receiver profile
-  const { data: receiver } = await supabase
-    .from("users")
-    .select("skills_offered")
-    .eq("id", receiver_id)
-    .single();
-
-  if (!sender?.skills_offered || sender.skills_offered.length === 0) {
-    return errorResponse(
-      res,
-      400,
-      "Add at least one skill to your profile before sending requests"
-    );
-  }
-
   // Prevent duplicate requests
-  const { data: existing } = await supabase
+  const { data: existing, error: existingError } = await supabase
     .from("requests")
     .select("*")
     .eq("sender_id", senderId)
@@ -45,10 +23,15 @@ const sendRequest = async (req, res) => {
     .eq("skill_requested", skill_requested)
     .in("status", ["pending", "accepted"]);
 
+  if (existingError) {
+    return errorResponse(res, 500, existingError.message);
+  }
+
   if (existing && existing.length > 0) {
     return errorResponse(res, 400, "Request already sent");
   }
 
+  // Create request
   const { data, error } = await supabase
     .from("requests")
     .insert([
@@ -59,22 +42,24 @@ const sendRequest = async (req, res) => {
         scheduled_date,
       },
     ])
-    .select();
+    .select()
+    .single();
 
   if (error) {
     return errorResponse(res, 400, error.message);
   }
 
+  // Send notification
   await supabase.from("notifications").insert([
     {
       user_id: receiver_id,
       type: "request",
-      message: "You received a new skill exchange request",
-      related_id: data[0].id,
+      message: `${req.user.name} sent you a skill exchange request`,
+      related_id: data.id,
     },
   ]);
 
-  return successResponse(res, 201, "Request sent successfully", data[0]);
+  return successResponse(res, 201, "Request sent successfully", data);
 };
 
 // Get My Requests
@@ -95,11 +80,12 @@ const getMyRequests = async (req, res) => {
     return errorResponse(res, 400, error.message);
   }
 
-  const formatted = data.map((req) => ({
-    ...req,
-    isSender: req.sender_id === userId,
-    isReceiver: req.receiver_id === userId,
-    otherUser: req.sender_id === userId ? req.receiver : req.sender,
+  const formatted = data.map((reqItem) => ({
+    ...reqItem,
+    isSender: reqItem.sender_id === userId,
+    isReceiver: reqItem.receiver_id === userId,
+    otherUser:
+      reqItem.sender_id === userId ? reqItem.receiver : reqItem.sender,
   }));
 
   return successResponse(res, 200, "Requests fetched successfully", formatted);
